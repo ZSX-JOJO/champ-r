@@ -3,7 +3,7 @@ import _noop from 'lodash/noop';
 
 import http, { CancelToken } from 'src/service/http';
 import { addFetched, addFetching } from 'src/share/actions';
-import SourceProto, { fetchLatestVersionFromCdn } from './source-proto';
+import SourceProto from './source-proto';
 import {
   IChampionCdnDataItem,
   IRuneItem,
@@ -11,8 +11,10 @@ import {
   IChampionInfo,
 } from '@interfaces/commonTypes';
 
-const CDN_PREFIX = `https://cdn.jsdelivr.net/npm/@champ-r`;
-const T_NPM_PREFIX = `https://registry.npm.taobao.org/@champ-r`;
+export const CDN_PREFIX = `https://cdn.jsdelivr.net/npm/@champ-r`;
+export const T_NPM_PREFIX = `https://registry.npmmirror.com/@champ-r`;
+// export const NPM_MIRROR = `https://registry.npm.taobao.org`
+export const NPM_MIRROR = `https://registry.npmmirror.com`;
 
 const Stages = {
   FETCH_CHAMPION_LIST: `FETCH_CHAMPION_LIST`,
@@ -41,6 +43,7 @@ type IFetchResult =
 export default class CdnService extends SourceProto {
   public cdnUrl = ``;
   public tNpmUrl = ``;
+  public version = ``;
 
   constructor(public pkgName = ``, public dispatch = _noop) {
     super();
@@ -50,11 +53,35 @@ export default class CdnService extends SourceProto {
 
   public getPkgInfo = () => SourceProto.getPkgInfo(this.tNpmUrl, this.cdnUrl);
 
+  public getPkgInfoFromJsdelivr = async () => {
+    try {
+      const info: any = await http.get(`${this.cdnUrl}@latest/package.json`);
+      return info.sourceVersion;
+    } catch (err) {
+      console.error(err);
+      return Promise.resolve(`latest`);
+    }
+  };
+
+  public getLatestPkgVerFromJsdelivr = async () => {
+    try {
+      const info: any = await http.get(`${this.cdnUrl}@latest/package.json`);
+      this.version = info.version;
+      return info.version;
+    } catch (err) {
+      console.error(err);
+      return Promise.resolve(`latest`);
+    }
+  };
+
   public getChampionList = async () => {
     try {
-      const version = await fetchLatestVersionFromCdn(this.tNpmUrl);
+      if (!this.version) {
+        this.version = await this.getLatestPkgVerFromJsdelivr();
+      }
+
       const data: { [key: string]: IChampionInfo } = await http.get(
-        `${this.cdnUrl}@${version}/index.json?${Date.now()}`,
+        `${this.cdnUrl}@${this.version}/index.json`,
         {
           cancelToken: new CancelToken(this.setCancelHook(`fetch-champion-list`)),
         },
@@ -70,9 +97,12 @@ export default class CdnService extends SourceProto {
 
   public getChampionDataFromCdn = async (champion: string, $identity: string = ``) => {
     try {
-      const version = await fetchLatestVersionFromCdn(this.tNpmUrl);
+      if (!this.version) {
+        this.version = await this.getLatestPkgVerFromJsdelivr();
+      }
+
       const data: IChampionCdnDataItem[] = await http.get(
-        `${this.cdnUrl}@${version}/${champion}.json?${Date.now()}`,
+        `${this.cdnUrl}@${this.version}/${champion}.json`,
         {
           cancelToken: new CancelToken(this.setCancelHook($identity)),
         },

@@ -40,6 +40,7 @@ debug({
 });
 contextMenu();
 
+process.env[`NODE_TLS_REJECT_UNAUTHORIZED`] = `0`;
 nativeTheme.themeSource = `light`;
 // Note: Must match `build.appId` in package.json
 app.setAppUserModelId('com.al.champ-r');
@@ -277,9 +278,9 @@ function registerMainListeners() {
       jobId,
     });
 
-    if (!data.canceled) {
-      lcuWatcher?.changeDir(data.filePaths[0]);
-    }
+    // if (!data.canceled) {
+    //   lcuWatcher?.changeDir(data.filePaths[0]);
+    // }
   });
 
   ipcMain.on(`quit-app`, () => {
@@ -445,7 +446,7 @@ function registerUpdater() {
     }
   }
 
-  lcuWatcher = new LcuWatcher(appConfig.get(`lolDir`));
+  lcuWatcher = new LcuWatcher();
 
   mainWindow = await createMainWindow();
   popupWindow = await createPopupWindow();
